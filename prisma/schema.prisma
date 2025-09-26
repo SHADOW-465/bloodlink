@@ -1,0 +1,163 @@
+/// prisma/schema.prisma
+
+/// This is your Prisma schema file,
+/// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --------------------------------------
+// ENUMS
+// --------------------------------------
+
+enum Role {
+  DONOR
+  RECIPIENT
+  ADMIN
+}
+
+enum BloodType {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+}
+
+enum RequestStatus {
+  OPEN
+  CLOSED
+  FULFILLED
+}
+
+enum UrgencyLevel {
+  CRITICAL
+  URGENT
+  NORMAL
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+// --------------------------------------
+// CORE MODELS
+// --------------------------------------
+
+model User {
+  id               String           @id @default(cuid())
+  email            String           @unique
+  password         String
+  role             Role             @default(DONOR)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  donorProfile     DonorProfile?
+  recipientProfile RecipientProfile?
+}
+
+model DonorProfile {
+  id                 String             @id @default(cuid())
+  user               User               @relation(fields: [userId], references: [id])
+  userId             String             @unique
+  bloodType          BloodType
+  location           String
+  medicalHistory     Json?
+  isVerified         VerificationStatus @default(PENDING)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  donations          Donation[]
+  rotaractClub       RotaractClub?      @relation(fields: [rotaractClubId], references: [id])
+  rotaractClubId     String?
+}
+
+model RecipientProfile {
+  id              String             @id @default(cuid())
+  user            User               @relation(fields: [userId], references: [id])
+  userId          String             @unique
+  bloodType       BloodType
+  location        String
+  medicalHistory  Json?
+  isVerified      VerificationStatus @default(PENDING)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  bloodRequests   BloodRequest[]
+}
+
+// --------------------------------------
+// APP-SPECIFIC MODELS
+// --------------------------------------
+
+model BloodRequest {
+  id                 String         @id @default(cuid())
+  recipient          RecipientProfile @relation(fields: [recipientId], references: [id])
+  recipientId        String
+  bloodType          BloodType
+  urgency            UrgencyLevel   @default(NORMAL)
+  status             RequestStatus  @default(OPEN)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  donation           Donation?
+  notifications      Notification[]
+}
+
+model Donation {
+  id                 String             @id @default(cuid())
+  donor              DonorProfile       @relation(fields: [donorId], references: [id])
+  donorId            String
+  bloodRequest       BloodRequest       @relation(fields: [bloodRequestId], references: [id])
+  bloodRequestId     String             @unique
+  otp                String?
+  isVerified         VerificationStatus @default(PENDING)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+model RotaractClub {
+  id              String         @id @default(cuid())
+  name            String
+  district        String
+  members         DonorProfile[]
+  donationStats   Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model Hospital {
+  id              String   @id @default(cuid())
+  name            String
+  location        String
+  isPrioritized   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  senderId    String
+  receiverId  String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id             String       @id @default(cuid())
+  bloodRequest   BloodRequest @relation(fields: [bloodRequestId], references: [id])
+  bloodRequestId String
+  message        String
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
